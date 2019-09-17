@@ -1,0 +1,144 @@
+---
+title: "Exploratory Data Analysis"
+output: github_document
+always_allow_html: yes
+---
+
+```{r setup, echo=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+library(kableExtra)
+library(gridExtra)
+library(caret)
+```
+
+## Exploration
+
+```{r read_data}
+training <- read.csv("../data/moneyball-training-data.csv")
+evaluation <- read.csv("../data/moneyball-evaluation-data.csv")
+```
+
+### Summary Statistics
+
+The following is a summary of the data.
+
+```{r}
+training %>% 
+  select(-INDEX) %>%
+  summary(.) %>%
+  kable() %>%
+  kable_styling()
+```
+
+## Dealing with missing data
+
+Now we can impute the missing values
+
+```{r, message=FALSE}
+moneyball_pp = training %>%
+  select(-TARGET_WINS) %>%
+  preProcess(., method = "bagImpute")
+```
+
+
+We will impute the missing data using a bagging technique.  First I want to flag the variables that are imputed.
+
+```{r wrangle}
+wrangle <- function(df){
+  # Add imputed flags
+  for(var in colnames(df[apply(df, 2, anyNA) ])){
+    new_var = paste("IMPUTED_", var, sep = "")
+    df[[new_var]] <- ifelse(is.na(df[[var]]), 1, 0)
+    df[[new_var]] <- as.factor(df[[new_var]])
+  }
+  # Impute data
+  df <- predict(moneyball_pp, df)
+  # Add in our enginered features
+  df <- df %>%
+    mutate(H = TEAM_BATTING_H / TEAM_PITCHING_H,
+           HR = TEAM_BATTING_HR / TEAM_PITCHING_HR,
+           SO = TEAM_BATTING_SO / TEAM_PITCHING_SO,
+           BB = TEAM_BATTING_BB / TEAM_PITCHING_BB)
+  # Return wrangled dataframe
+  df
+}
+```
+
+```{r}
+training <- wrangle(training)
+#evaluation <- wrangle(evaluation)
+```
+
+```{r plot_me}
+plot_me <- function(d, title, xlab, ylab){
+  has_color <- "color" %in% names(d)
+  #nas <- d %>% filter(is.na(x)) %>% nrow()
+  density <- d %>%
+    filter(!is.na(x)) %>%
+    ggplot(., aes(x, stat(count))) +
+    geom_density() +
+    labs(title = title, 
+       x = xlab,
+       y = ylab) +
+    theme(panel.background = element_blank(),
+        panel.grid.major = element_line(color = "gray95")) +
+    geom_vline(xintercept = mean(d$x, na.rm = TRUE), color = "red") +
+    geom_vline(xintercept = median(d$x, na.rm = TRUE), color = "blue")
+  # Add annotation for NA's
+  if(has_color){
+    nas <- sum(as.numeric(as.character(d$color)))
+    density <- density + ggtitle(title, subtitle = paste(nas, "Imputed Observations")) 
+  }
+  
+  # Create a scatter plot
+  if(has_color){
+    scatter <- ggplot(d, aes(x, TARGET_WINS, color=color)) 
+  } else {
+    scatter <- ggplot(d, aes(x, TARGET_WINS)) 
+  }
+  scatter <- scatter +
+    geom_point() + 
+    geom_smooth(method = lm) + 
+    labs(x = xlab,
+         y = ylab) +
+    expand_limits(y=0) +
+    theme(panel.background = element_blank(),
+          panel.grid.major = element_line(color = "gray95"))
+  # Put them side by side
+  grid.arrange(density, scatter, ncol=2)
+}
+```
+
+```{r}
+training %>%
+  mutate(x = H) %>%
+  plot_me(., "Hits", element_blank(), element_blank())
+```
+
+```{r}
+training %>%
+  mutate(x = HR) %>%
+  plot_me(., "Home Runs", element_blank(), element_blank())
+```
+
+```{r}
+training %>%
+  mutate(x = SO) %>%
+  plot_me(., "Strike Outs", element_blank(), element_blank())
+```
+
+```{r}
+training %>%
+  mutate(x = BB) %>%
+  plot_me(., "Walks", element_blank(), element_blank())
+```
+
+
+```{r}
+fit <- lm(TARGET_WINS ~ H + HR + SO + BB, training)
+summary(fit)
+plot(fit)
+plot(resid(fit))
+```
