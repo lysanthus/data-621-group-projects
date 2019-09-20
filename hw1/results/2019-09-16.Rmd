@@ -1,0 +1,225 @@
+---
+title: "Exploratory Data Analysis"
+author: "Critical Thinking Group 3"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    highlight: kate
+    toc_depth: 3
+    code_folding: "hide"
+---
+
+```{r knitr_init, echo=FALSE, cache=FALSE, message=FALSE}
+library(knitr)
+library(rmdformats)
+library(dplyr)
+library(ggplot2)
+library(kableExtra)
+library(gridExtra)
+
+## Global options
+options(max.print="75")
+opts_chunk$set(echo=FALSE,
+	             cache=FALSE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+
+```{r read_data}
+training <- read.csv("../data/moneyball-training-data.csv")
+```
+
+
+
+## Exploration
+
+### Summary Statistics
+
+The following is a summary of the data.
+
+```{r}
+training %>% 
+  select(-INDEX) %>%
+  summary(.) %>%
+  kable() %>%
+  kable_styling()
+```
+
+### Plots
+
+The following density plots show the spread of the data.  The red verticle line is the mean and the blue verticle line is the median.  The scatter plot shows the relationship between wins and the variable
+
+```{r plot_me}
+plot_me <- function(d, title, xlab, ylab){
+  nas <- d %>% filter(is.na(x)) %>% nrow()
+  density <- d %>%
+    filter(!is.na(x)) %>%
+    ggplot(., aes(x, stat(count))) +
+    geom_density() +
+    labs(title = title, 
+       x = xlab,
+       y = ylab) +
+    theme(panel.background = element_blank(),
+        panel.grid.major = element_line(color = "gray95")) +
+    geom_vline(xintercept = mean(d$x, na.rm = TRUE), color = "red") +
+    geom_vline(xintercept = median(d$x, na.rm = TRUE), color = "blue")
+  # Add annotation for NA's
+  if(nas > 0){
+    density <- density + ggtitle(title, subtitle = paste(nas, "Null Observations")) 
+  }
+  
+  # Create a scatter plot
+  scatter <- ggplot(d, aes(x, TARGET_WINS)) +
+    geom_point() + 
+    geom_smooth(method = lm) + 
+    labs(x = xlab,
+         y = ylab) +
+    expand_limits(y=0) +
+    theme(panel.background = element_blank(),
+          panel.grid.major = element_line(color = "gray95"))
+  # Put them side by side
+  grid.arrange(density, scatter, ncol=2)
+}
+```
+
+```{r}
+training %>%
+  mutate(x = TARGET_WINS) %>%
+  plot_me(., "Wins", element_blank(), element_blank())
+```
+
+```{r}
+training %>%
+  mutate(x = TEAM_BATTING_H) %>%
+  plot_me(., "Base Hits (TEAM_BATTING_H)", element_blank(), element_blank())
+```
+
+```{r}
+training %>%
+  mutate(x = TEAM_BATTING_2B) %>%
+  plot_me(., "Doubles (TEAM_BATTING_2B)", element_blank(), element_blank())
+```
+
+```{r}
+training %>%
+  mutate(x = TEAM_BATTING_3B) %>%
+  plot_me(., "Triples (TEAM_BATTING_3B)", element_blank(), element_blank())
+```
+
+```{r}
+training %>%
+  mutate(x = TEAM_BATTING_HR) %>%
+  plot_me(., "Homeruns (TEAM_BATTING_HR)", element_blank(), element_blank())
+```
+
+```{r}
+training %>%
+  mutate(x = TEAM_BATTING_BB) %>%
+  plot_me(., "Walks (TEAM_BATTING_BB)", element_blank(), element_blank())
+```
+
+```{r}
+training %>%
+  mutate(x = TEAM_BATTING_HBP) %>%
+  plot_me(., "Hit by Pitch (TEAM_BATTING_HBP)", element_blank(), element_blank())
+```
+
+```{r}
+training %>%
+  mutate(x = TEAM_BATTING_SO) %>%
+  plot_me(., "Strikeouts (TEAM_BATTING_SO)", element_blank(), element_blank())
+```
+
+
+```{r}
+training %>%
+  mutate(x = TEAM_BASERUN_SB) %>%
+  plot_me(., "Stolen Bases (TEAM_BASERUN_SB)", element_blank(), element_blank())
+```
+
+```{r}
+training %>%
+  mutate(x = TEAM_BASERUN_CS) %>%
+  plot_me(., "Caught Stealing Bases (TEAM_BASERUN_CS)", element_blank(), element_blank())
+```
+
+```{r}
+training %>%
+  mutate(x = TEAM_FIELDING_E) %>%
+  plot_me(., "Errors (TEAM_FIELDING_E)", element_blank(), element_blank())
+```
+
+```{r}
+training %>%
+  mutate(x = TEAM_FIELDING_DP) %>%
+  plot_me(., "Double Plays (TEAM_FIELDING_DP)", element_blank(), element_blank())
+```
+
+```{r}
+training %>%
+  mutate(x = TEAM_PITCHING_BB) %>%
+  plot_me(., "Walks Allowed (TEAM_PITCHING_BB)", element_blank(), element_blank())
+```
+
+```{r}
+training %>%
+  mutate(x = TEAM_PITCHING_H) %>%
+  plot_me(., "Hits Allowed (TEAM_PITCHING_H)", element_blank(), element_blank())
+```
+
+```{r}
+training %>%
+  mutate(x = TEAM_PITCHING_HR) %>%
+  plot_me(., "Homeruns Allowed (TEAM_PITCHING_HR)", element_blank(), element_blank())
+```
+
+```{r}
+training %>%
+  mutate(x = TEAM_PITCHING_SO) %>%
+  plot_me(., "Strikouts by Pitcher (TEAM_PITCHING_SO)", element_blank(), element_blank())
+```
+
+## Missing Data
+
+### Batting Strike Outs
+
+To fill the missing in the missing data we will alternate between the two modes (578 and 909)
+
+```{r}
+#D <- training[!is.na(training$TEAM_BATTING_SO),]$TEAM_BATTING_SO
+#mode1 <- density(D)$x[density(D)$y == max(density(D)$y)]
+# Modes at
+# 578 and 909
+```
+
+```{r}
+set.seed(42)
+
+training <- training %>%
+  mutate(TEAM_BATTING_SO  = ifelse(is.na(TEAM_BATTING_SO), sample(c(578, 909), 1), TEAM_BATTING_SO))
+```
+
+## Scaled and Combined
+
+I am going to scale all variables and combine the batting variables into one measure. 
+
+
+```{r}
+training <- training %>%
+  mutate(TEAM_BATTING_SO = -1 * TEAM_BATTING_SO) %>%
+  mutate_at(scale, .vars = vars(-TARGET_WINS)) %>%
+  mutate(TEAM_BATTING = TEAM_BATTING_H + TEAM_BATTING_2B + TEAM_BATTING_3B + TEAM_BATTING_HR + TEAM_BATTING_BB + TEAM_BATTING_SO)
+```
+
+
+```{r}
+training %>%
+  mutate(x = TEAM_BATTING) %>%
+  plot_me(., "Batting", element_blank(), element_blank())
+
+summary(lm(TARGET_WINS ~ TEAM_BATTING, training))
+```

@@ -1,0 +1,133 @@
+---
+title: "Exploratory Data Analysis"
+author: "Critical Thinking Group 3"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    highlight: kate
+---
+
+
+```{r knitr_init, echo=FALSE, cache=FALSE}
+library(knitr)
+library(rmdformats)
+
+## Global options
+options(max.print="75")
+opts_chunk$set(echo=FALSE,
+               cache=FALSE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+
+```{r libraries, message=FALSE}
+library(dplyr)
+library(ggplot2)
+library(kableExtra)
+library(gridExtra)
+library(caret)
+library(MASS)
+```
+
+```{r read_data}
+training <- read.csv("../data/moneyball-training-data.csv") %>%
+  dplyr::select(-INDEX, -TEAM_BATTING_HBP)
+evaluation <- read.csv("../data/moneyball-evaluation-data.csv")
+```
+
+```{r preprocess_data}
+pp <- NA
+#pp <- training %>%
+#  dplyr::select(-TARGET_WINS) %>%
+#  preProcess(., method = c("center", "scale"))
+
+wrangle <- function(df, pp){
+  #df <- predict(pp, df)
+  # Remove all outliers
+  for (v in names(df)){
+    outliers <- boxplot(df[[v]], plot = FALSE)$out
+    if(length(outliers) > 0){
+      df <- df[-which(df[[v]] %in% outliers),]
+      print(paste("Removing", length(outliers), v, "outliers"))
+    }
+    #df[[v]] <- log(df[[v]])
+  }
+  
+  #df <- predict(pp, df)
+  df
+}
+
+training <- wrangle(training, pp)
+#evaluation <- wrangle(evaluation, pp)
+```
+
+```{r plot_me}
+plot_me <- function(d, title){
+  nas <- d %>% filter(is.na(x)) %>% nrow()
+  density <- d %>%
+    filter(!is.na(x)) %>%
+    ggplot(., aes(x, stat(count))) +
+    geom_density() +
+    labs(title = title, x = element_blank(), y = element_blank()) +
+    theme(panel.background = element_blank(), panel.grid.major = element_line(color = "gray95")) +
+    geom_vline(xintercept = mean(d$x, na.rm = TRUE), color = "red") +
+    geom_vline(xintercept = median(d$x, na.rm = TRUE), color = "blue")
+  # Add annotation for NA's
+  if(nas > 0){
+    density <- density + ggtitle(title, subtitle = paste(nas, "Null Observations")) 
+  }
+  
+  # Create a scatter plot
+  scatter <- ggplot(d, aes(x, TARGET_WINS)) +
+    geom_point() + 
+    geom_smooth(method = lm) + 
+    labs(x = element_blank(), y = element_blank()) +
+    expand_limits(y=0) +
+    theme(panel.background = element_blank(), panel.grid.major = element_line(color = "gray95"))
+  # Put them side by side
+  grid.arrange(density, scatter, ncol=2)
+}
+```
+
+```{r plot_loop}
+for (v in names(training)) {
+  training$x <- training[[v]]
+  p <- plot_me(training, v)
+}
+```
+
+```{r missing_data}
+for(v in names(training)){
+  training[[v]][is.na(training[[v]])] <- median(training[[v]], na.rm=TRUE)
+}
+```
+
+
+```{r}
+in_training <- createDataPartition(y = training$TARGET_WINS, p = 0.75, list=FALSE)
+test   <- training[ -in_training, ]
+training <- training[in_training, ]
+```
+
+
+```{r}
+fit1 <- lm(TARGET_WINS ~ ., training)
+fit2 <- lm(TARGET_WINS ~ 1, training)
+summary(fit1)
+```
+
+```{r}
+fit <- stepAIC(fit2, direction="both", scope = list(upper = fit1, lower = fit2))
+summary(fit)
+```
+
+```{r}
+data.frame(actual = test$TARGET_WINS, predicted= predict(fit, test)) %>%
+ggplot(., aes(predicted, actual)) + 
+  geom_point() +
+  expand_limits(x = 0, y=0)
+```

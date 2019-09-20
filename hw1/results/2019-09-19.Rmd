@@ -1,0 +1,174 @@
+---
+title: "Exploratory Data Analysis"
+author: "Critical Thinking Group 3"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    highlight: kate
+    toc_depth: 3
+    code_folding: "hide"
+---
+
+```{r knitr_init, echo=FALSE, cache=FALSE, message=FALSE}
+library(knitr)
+library(rmdformats)
+library(dplyr)
+library(ggplot2)
+library(kableExtra)
+library(gridExtra)
+library(rpart)
+library(rattle)
+library(caret)
+library(MASS)
+## Global options
+options(max.print="75")
+opts_chunk$set(echo=FALSE,
+	             cache=FALSE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+
+```{r read_data}
+training <- read.csv("../data/moneyball-training-data.csv") %>%
+  dplyr::select(-TEAM_BATTING_HBP, -INDEX)
+
+cols <- names(training)
+
+n_groups <- 5
+
+share <- max(training$TARGET_WINS) / n_groups
+
+training <- training %>%
+  #mutate(group = ntile(TARGET_WINS, n_groups)) %>%
+  mutate(group = floor(TARGET_WINS / share)) %>%
+  mutate(group = ifelse(group == n_groups, n_groups , group + 1)) %>%
+  mutate(group = as.factor(group))
+
+ggplot(training, aes(TARGET_WINS, fill=group)) + geom_density()
+```
+
+
+```{r pre_process}
+moneyball_pp <- training %>%
+  dplyr::select(-TARGET_WINS, -group) %>%
+  #preProcess(., method = "bagImpute")
+  preProcess(., method = c("knnImpute"))
+
+wrangle <- function(df){
+  # Add imputed flags
+  for(var in colnames(df[apply(df, 2, anyNA) ])){
+    new_var = paste("IMPUTED_", var, sep = "")
+    df[[new_var]] <- ifelse(is.na(df[[var]]), 1, 0)
+    df[[new_var]] <- as.factor(df[[new_var]])
+  }
+  # Impute data
+  #df <- predict(moneyball_pp, df)
+  df
+}
+
+training <- wrangle(training)
+```
+
+
+```{r plot_me}
+plot_me <- function(d, title){
+  nas <- d %>% filter(is.na(x)) %>% nrow()
+  density <- d %>%
+    filter(!is.na(x)) %>%
+    ggplot(., aes(x, stat(count), color=group, alpha=0.5)) +
+    geom_density() +
+    labs(title = title, x = element_blank(), y = element_blank()) +
+    theme(panel.background = element_blank(), panel.grid.major = element_line(color = "gray95") , legend.position = "None") #+
+    #geom_vline(xintercept = mean(d$x, na.rm = TRUE), color = "red") +
+    #geom_vline(xintercept = median(d$x, na.rm = TRUE), color = "blue")
+  # Add annotation for NA's
+  if(nas > 0){
+    density <- density + ggtitle(title, subtitle = paste(nas, "Null Observations")) 
+  }
+  
+  # Create a scatter plot
+  scatter <- ggplot(d, aes(x, TARGET_WINS, color=group)) +
+    geom_point() + 
+    geom_smooth(method = lm) + 
+    labs(x = element_blank(), y = element_blank()) +
+    expand_limits(y=0) +
+    theme(panel.background = element_blank(), panel.grid.major = element_line(color = "gray95"), legend.position = "None")
+  
+  scatter2 <- ggplot(d, aes(x, x, color=group)) +
+    geom_point() + 
+    labs(x = element_blank(), y = element_blank()) +
+    expand_limits(y=0) +
+    geom_jitter() +
+    labs(title = title, x = element_blank(), y = element_blank()) +
+    theme(panel.background = element_blank(), panel.grid.major = element_line(color = "gray95") , legend.position = "None")
+  # Put them side by side
+  grid.arrange(density, scatter, ncol=2)
+  #grid.arrange(scatter2, scatter, ncol=2)
+}
+```
+
+```{r plot_loop}
+for (v in cols) {
+  training$x <- training[[v]]
+  p <- plot_me(training, v)
+}
+```
+
+```{r}
+for (g in 1:n_groups){
+  #shiny::h3(g)
+  print(g)
+
+  temp <- training %>%
+    filter(group == g) %>%
+    dplyr::select(cols) %>%
+    na.omit()
+  
+  print(summarise(temp))
+  if(nrow(temp) > ncol(temp)){
+    #fit <- lm(TARGET_WINS ~ ., data = temp)
+    
+    fit1 <- lm(TARGET_WINS ~ ., temp)
+    fit2 <- lm(TARGET_WINS ~ 1, temp)
+
+    #print(summary(fit))
+    fit <- stepAIC(fit2, direction="both", scope = list(upper = fit1, lower = fit2))
+    print(summary(fit))
+  }
+}
+```
+
+
+```{r eval=FALSE}
+# x <- training %>%
+#   select(-TARGET_WINS, -group)
+# 
+# control <- trainControl(method='repeatedcv', number=10, repeats=3)
+# 
+# metric <- "Accuracy"
+# 
+# set.seed(42)
+# 
+# mtry <- sqrt(ncol(x))
+# 
+# tunegrid <- expand.grid(.mtry=mtry)
+# 
+# rf_default <- train(group~., 
+#                     data=training,
+#                     method='rf', 
+#                     metric='Accuracy', 
+#                     tuneGrid=tunegrid, 
+#                     trControl=control)
+```
+
+```{r}
+rpart_model <- training %>%
+  dplyr::select(-TARGET_WINS) %>%
+  rpart(group~., data = ., method="class")
+
+fancyRpartPlot(rpart_model)
+```
