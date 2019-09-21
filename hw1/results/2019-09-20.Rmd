@@ -1,0 +1,161 @@
+---
+title: "Exploratory Data Analysis"
+author: "Critical Thinking Group 3"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    highlight: kate
+    toc_depth: 3
+---
+
+
+```{r knitr_init, echo=FALSE, cache=FALSE, message=FALSE}
+library(knitr)
+library(rmdformats)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(kableExtra)
+
+## Global options
+options(max.print="75")
+opts_chunk$set(echo=FALSE,
+	             cache=FALSE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+
+```{r read_data}
+training <- read.csv("../data/moneyball-training-data.csv") %>%
+  select(-TEAM_BATTING_HBP, -INDEX) %>%
+  mutate(TEAM_BATTING_S = TEAM_BATTING_H + TEAM_BATTING_2B + TEAM_BATTING_3B + TEAM_BATTING_HR)
+```
+
+## Scatter Plots
+
+```{r small_multiples_scatter, warning=FALSE}
+training %>%
+  gather(variable, value, TEAM_BATTING_H:TEAM_BATTING_S) %>%
+  ggplot(., aes(TARGET_WINS, value)) + 
+  geom_point(fill = "indianred4", color="indianred4") + 
+  facet_wrap(~variable, scales ="free") +
+  labs(x = element_blank(), y = "Wins")
+```
+
+
+```{r}
+training %>%
+  summary() %>%
+  kable() %>%
+  kable_styling()
+```
+
+## Distribution Plots
+
+```{r small_multiples_density, warning=FALSE}
+training %>%
+  gather(variable, value, TARGET_WINS:TEAM_BATTING_S) %>%
+  ggplot(., aes(value)) + 
+  geom_density(fill = "indianred4", color="indianred4") + 
+  facet_wrap(~variable, scales ="free") +
+  labs(x = element_blank(), y = element_blank())
+```
+
+## Preprocessing
+
+### Data Transformations
+
+```{r}
+transformations <- function(df){
+  right_skewed_variables <- c("TEAM_BASERUN_CS", "TEAM_BASERUN_SB", "TEAM_BATTING_3B")
+  for(v in right_skewed_variables){
+    # Apply a square root transformation
+    training[[v]] <- sqrt(training[[v]])
+  }
+  df
+}
+
+training <- training %>% transformations()
+```
+
+```{r small_multiples_transformed_density, warning=FALSE}
+training %>%
+  gather(variable, value, TARGET_WINS:TEAM_BATTING_S) %>%
+  ggplot(., aes(value)) + 
+  geom_density(fill = "indianred4", color="indianred4") + 
+  facet_wrap(~variable, scales ="free") +
+  labs(x = element_blank(), y = element_blank())
+```
+
+```{r}
+training %>%
+  summary() %>%
+  kable() %>%
+  kable_styling()
+```
+
+### Remove Outliers
+
+```{r}
+for (v in names(training)){
+    outliers <- boxplot(training[[v]], plot = FALSE)$out
+    if(length(outliers) > 0){
+      if(!exists("the_outliers")){
+        the_outliers <- training[which(training[[v]] %in% outliers),]
+      } else {
+        the_outliers <- rbind(the_outliers, training[which(training[[v]] %in% outliers),])
+      }
+      training <- training[-which(training[[v]] %in% outliers),]
+      message(paste("Removing", length(outliers), v, "outliers"))
+    }
+}
+```
+
+```{r small_multiples_outliers_removed, warning=FALSE}
+training %>%
+  gather(variable, value, TARGET_WINS:TEAM_BATTING_S) %>%
+  ggplot(., aes(value)) + 
+  geom_density(fill = "indianred4", color="indianred4") + 
+  facet_wrap(~variable, scales ="free") +
+  labs(x = element_blank(), y = element_blank())
+```
+
+```{r}
+training %>%
+  summary() %>%
+  kable() %>%
+  kable_styling()
+```
+
+
+```{r}
+adjust_by_a_factor_of <- .1
+adjust_by <- c()
+adjust_by_names <- c()
+for (v in names(training)[2:16]){
+  temp <- median((training[[v]] * adjust_by_a_factor_of) / training$TARGET_WINS, na.rm = TRUE)
+  adjust_by <- append(adjust_by, temp)
+  adjust_by_names <- append(adjust_by_names, v)
+}
+
+names(adjust_by) <- adjust_by_names
+```
+
+```{r}
+for (v in names(training)[2:16]){
+  #training[[v]] <- log(training[[v]])# * adjust_by[v]
+}
+```
+
+```{r small_multiples_adjusted_scatter, warning=FALSE}
+training %>%
+  gather(variable, value, TEAM_BATTING_H:TEAM_BATTING_S) %>%
+  ggplot(., aes(TARGET_WINS, value)) + 
+  geom_point(fill = "indianred4", color="indianred4") + 
+  facet_wrap(~variable, scales ="free") +
+  labs(x = element_blank(), y = "Wins")
+```
