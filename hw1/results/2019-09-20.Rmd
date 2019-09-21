@@ -31,7 +31,7 @@ opts_knit$set(width=75)
 
 ```{r read_data}
 training <- read.csv("../data/moneyball-training-data.csv") %>%
-  select(-TEAM_BATTING_HBP, -INDEX) %>%
+  #select(-TEAM_BATTING_HBP, -INDEX) %>%
   mutate(TEAM_BATTING_S = TEAM_BATTING_H + TEAM_BATTING_2B + TEAM_BATTING_3B + TEAM_BATTING_HR)
 ```
 
@@ -42,7 +42,7 @@ training %>%
   gather(variable, value, TEAM_BATTING_H:TEAM_BATTING_S) %>%
   ggplot(., aes(TARGET_WINS, value)) + 
   geom_point(fill = "indianred4", color="indianred4") + 
-  facet_wrap(~variable, scales ="free") +
+  facet_wrap(~variable, scales ="free", ncol = 4) +
   labs(x = element_blank(), y = "Wins")
 ```
 
@@ -61,7 +61,7 @@ training %>%
   gather(variable, value, TARGET_WINS:TEAM_BATTING_S) %>%
   ggplot(., aes(value)) + 
   geom_density(fill = "indianred4", color="indianred4") + 
-  facet_wrap(~variable, scales ="free") +
+  facet_wrap(~variable, scales ="free", ncol = 4) +
   labs(x = element_blank(), y = element_blank())
 ```
 
@@ -87,7 +87,7 @@ training %>%
   gather(variable, value, TARGET_WINS:TEAM_BATTING_S) %>%
   ggplot(., aes(value)) + 
   geom_density(fill = "indianred4", color="indianred4") + 
-  facet_wrap(~variable, scales ="free") +
+  facet_wrap(~variable, scales ="free", ncol = 4) +
   labs(x = element_blank(), y = element_blank())
 ```
 
@@ -101,13 +101,15 @@ training %>%
 ### Remove Outliers
 
 ```{r}
-for (v in names(training)){
+predictors <- training %>% select(-TARGET_WINS, -INDEX) %>% names()
+for(v in predictors){
+#for (v in names(training)){
     outliers <- boxplot(training[[v]], plot = FALSE)$out
     if(length(outliers) > 0){
       if(!exists("the_outliers")){
-        the_outliers <- training[which(training[[v]] %in% outliers),]
+        #the_outliers <- training[which(training[[v]] %in% outliers),]
       } else {
-        the_outliers <- rbind(the_outliers, training[which(training[[v]] %in% outliers),])
+        #the_outliers <- rbind(the_outliers, training[which(training[[v]] %in% outliers),])
       }
       training <- training[-which(training[[v]] %in% outliers),]
       message(paste("Removing", length(outliers), v, "outliers"))
@@ -120,7 +122,7 @@ training %>%
   gather(variable, value, TARGET_WINS:TEAM_BATTING_S) %>%
   ggplot(., aes(value)) + 
   geom_density(fill = "indianred4", color="indianred4") + 
-  facet_wrap(~variable, scales ="free") +
+  facet_wrap(~variable, scales ="free", ncol = 4) +
   labs(x = element_blank(), y = element_blank())
 ```
 
@@ -145,17 +147,109 @@ for (v in names(training)[2:16]){
 names(adjust_by) <- adjust_by_names
 ```
 
-```{r}
-for (v in names(training)[2:16]){
-  #training[[v]] <- log(training[[v]])# * adjust_by[v]
-}
-```
+
 
 ```{r small_multiples_adjusted_scatter, warning=FALSE}
 training %>%
   gather(variable, value, TEAM_BATTING_H:TEAM_BATTING_S) %>%
   ggplot(., aes(TARGET_WINS, value)) + 
   geom_point(fill = "indianred4", color="indianred4") + 
-  facet_wrap(~variable, scales ="free") +
+  facet_wrap(~variable, scales ="free", ncol = 4) +
   labs(x = element_blank(), y = "Wins")
+```
+
+
+## Interesting
+
+Groups emerged from the predictors:
+
+```{r}
+training <- training %>%
+  mutate(ratio = TEAM_BATTING_H / TEAM_PITCHING_H,
+         Group = ifelse(ratio > 0.98, "A", "B")) %>%
+  mutate(Group = ifelse(ratio < 0.9, "C", Group)) %>%
+  mutate(Group = as.factor(Group))
+
+training %>%
+  ggplot(., aes(TEAM_BATTING_H, TEAM_PITCHING_H, color = Group)) +
+         geom_point()
+```
+
+They don't have much meaning though
+
+```{r}
+ggplot(training, aes(TEAM_BATTING_H, TARGET_WINS, color = Group)) + 
+  geom_point()
+```
+
+
+This one is not very useful either
+
+```{r}
+training <- training %>%
+  mutate(ratio = TEAM_BATTING_BB / TEAM_PITCHING_BB,
+         Group = ifelse(ratio > 0.98, "A", "B")) %>%
+  mutate(Group = ifelse(ratio < 0.9, "C", Group)) %>%
+  mutate(Group = as.factor(Group))
+
+training %>%
+  ggplot(., aes(TEAM_BATTING_BB, TEAM_PITCHING_BB, color = Group)) +
+         geom_point()
+
+ggplot(training, aes(TEAM_PITCHING_BB, TARGET_WINS, color = Group)) + 
+  geom_point()
+```
+
+Same story with this one
+
+```{r}
+training <- training %>%
+  mutate(ratio = TEAM_BATTING_HR / TEAM_PITCHING_HR,
+         Group = ifelse(ratio > 0.98, "A", "B")) %>%
+  mutate(Group = ifelse(ratio < 0.9, "C", Group)) %>%
+  mutate(Group = as.factor(Group))
+
+training %>%
+  ggplot(., aes(TEAM_BATTING_BB, TEAM_PITCHING_BB, color = Group)) +
+         geom_point()
+
+ggplot(training, aes(TEAM_PITCHING_BB, TARGET_WINS, color = Group)) + 
+  geom_point()
+```
+
+
+But this one is very interesting because it seperates the bimodal distribution.
+
+```{r}
+training <- training %>%
+  mutate(ratio = TEAM_BATTING_SO / TEAM_PITCHING_SO,
+         Group = ifelse(ratio > 0.98, "A", "B")) %>%
+  mutate(Group = ifelse(ratio < 0.9, "C", Group)) %>%
+  mutate(Group = as.factor(Group))
+
+training %>%
+  ggplot(., aes(TEAM_BATTING_H, TEAM_PITCHING_H, color = Group)) +
+         geom_point()
+
+ggplot(training, aes(TEAM_PITCHING_SO, TARGET_WINS, color = Group)) + 
+  geom_point()
+
+ggplot(training, aes(TEAM_PITCHING_SO, color = Group)) + 
+  geom_density()
+```
+
+
+This only happens after the outliers are pulled out.
+
+
+
+```{r eval=FALSE}
+# for(x in predictors){
+#   for(y in predictors){
+#     if(x != y){
+#       print(paste(x,"&",y))
+#       plot(training[[x]], training[[y]])
+#     }
+#   }
+# }
 ```
