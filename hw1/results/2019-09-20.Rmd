@@ -210,7 +210,6 @@ training %>%
   ggplot(., aes(TEAM_BATTING_BB, TEAM_PITCHING_BB, color = BB_GROUP)) +
   geom_point() +
   scale_color_brewer(palette = "Set1")
-<<<<<<< HEAD
 
 ggplot(training, aes(TEAM_BATTING_BB, TARGET_WINS, color = BB_GROUP)) + 
   geom_point() +
@@ -220,17 +219,6 @@ ggplot(training, aes(TEAM_PITCHING_BB, TARGET_WINS, color = BB_GROUP)) +
   geom_point() +
   scale_color_brewer(palette = "Set1")
 
-=======
-
-ggplot(training, aes(TEAM_BATTING_BB, TARGET_WINS, color = BB_GROUP)) + 
-  geom_point() +
-  scale_color_brewer(palette = "Set1")
-
-ggplot(training, aes(TEAM_PITCHING_BB, TARGET_WINS, color = BB_GROUP)) + 
-  geom_point() +
-  scale_color_brewer(palette = "Set1")
-
->>>>>>> 0dcef67bf3c5d371cacab4c43c9ba0c061c2406f
 ggplot(training, aes(BB_RATIO, TARGET_WINS, color = BB_GROUP)) + 
   geom_point() +
   scale_color_brewer(palette = "Set1")
@@ -284,19 +272,11 @@ ggplot(training, aes(TEAM_BATTING_SO, TARGET_WINS, color = SO_GROUP)) +
 ggplot(training, aes(TEAM_PITCHING_SO, TARGET_WINS, color = SO_GROUP)) + 
   geom_point() +
   scale_color_brewer(palette = "Set1")
-<<<<<<< HEAD
 
 ggplot(training, aes(TEAM_BATTING_SO, color = SO_GROUP)) + 
   geom_density() +
   scale_color_brewer(palette = "Set1")
 
-=======
-
-ggplot(training, aes(TEAM_BATTING_SO, color = SO_GROUP)) + 
-  geom_density() +
-  scale_color_brewer(palette = "Set1")
-
->>>>>>> 0dcef67bf3c5d371cacab4c43c9ba0c061c2406f
 ggplot(training, aes(TEAM_PITCHING_SO, color = SO_GROUP)) + 
   geom_density() +
   scale_color_brewer(palette = "Set1")
@@ -313,7 +293,6 @@ This only happens after the outliers are pulled out.
 
 ```{r}
 training <- training %>%
-<<<<<<< HEAD
   mutate(TEAM_PITCHING_SO_PER_BB = TEAM_PITCHING_SO / TEAM_PITCHING_BB)
 
 
@@ -328,8 +307,6 @@ ggplot(training, aes(TEAM_PITCHING_SO_PER_BB, TARGET_WINS, color=SO_GROUP)) +
 
 ```{r}
 training <- training %>%
-=======
->>>>>>> 0dcef67bf3c5d371cacab4c43c9ba0c061c2406f
   mutate(AT_BAT = TEAM_BATTING_H + TEAM_BATTING_BB + TEAM_BATTING_SO) %>%
   mutate(TEAM_BATTING_HR_RATE = TEAM_BATTING_HR / AT_BAT) %>%
   mutate(TEAM_BATTING_H_RATE = TEAM_BATTING_H / AT_BAT)
@@ -339,10 +316,7 @@ ggplot(training, aes(TEAM_BATTING_HR, TARGET_WINS, color= HR_GROUP)) +
   geom_smooth(method = "lm") +
   facet_wrap(~HR_GROUP, scales ="free") +
   theme(legend.position = "None") +
-<<<<<<< HEAD
   scale_color_brewer(palette = "Set1") + 
-=======
->>>>>>> 0dcef67bf3c5d371cacab4c43c9ba0c061c2406f
   ggtitle("Home Run Rate")
 
 ggplot(training, aes(TEAM_BATTING_H_RATE, TARGET_WINS, color= H_GROUP)) + 
@@ -350,10 +324,10 @@ ggplot(training, aes(TEAM_BATTING_H_RATE, TARGET_WINS, color= H_GROUP)) +
   geom_smooth(method = "lm") +
   facet_wrap(~H_GROUP, scales ="free") +
   theme(legend.position = "None") +
-<<<<<<< HEAD
   scale_color_brewer(palette = "Set1") + 
   ggtitle("Batting Hit Rate")
 ```
+
 
 ```{r}
 training <- training %>%
@@ -363,26 +337,9 @@ training <- training %>%
 ggplot(training, aes(TEAM_PITCHING_SO_RATE, TARGET_WINS, color= SO_GROUP)) + 
   geom_point() +
   geom_smooth(method = "lm") +
-  facet_wrap(~SO_GROUP, scales ="free") +
-  theme(legend.position = "None") + 
   scale_color_brewer(palette = "Set1") + 
-  ggtitle("Strike Outs Pitched Rate")
-```
-
-=======
-  ggtitle("Batting Hit Rate")
-```
-
-```{r}
-training <- training %>%
-  mutate(PITCHES = TEAM_PITCHING_H + TEAM_PITCHING_BB + TEAM_PITCHING_SO) %>%
-  mutate(TEAM_PITCHING_SO_RATE = TEAM_PITCHING_SO / PITCHES)
-
-ggplot(training, aes(TEAM_PITCHING_SO_RATE, TARGET_WINS, color= SO_GROUP)) + 
-  geom_point() +
-  geom_smooth(method = "lm") +
   facet_wrap(~SO_GROUP, scales ="free") +
   theme(legend.position = "None") +
   ggtitle("Strike Outs Pitched Rate")
 ```
->>>>>>> 0dcef67bf3c5d371cacab4c43c9ba0c061c2406f
+
